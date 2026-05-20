@@ -25,7 +25,7 @@ function makeSlide(index: number): Slide {
         ? "An opening slide for a mortgage startup presentation with a bold hero image, a giant title, and extremely eager sales vibes"
         : "",
     status: "idle",
-    note: index === 0 ? "House style is locked. Please do not make it tasteful." : ""
+    note: ""
   };
 }
 
