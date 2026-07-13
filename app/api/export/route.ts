@@ -1,101 +1,83 @@
+import path from "node:path";
+
 import { NextResponse } from "next/server";
 import pptxgen from "pptxgenjs";
 
-type SlidePayload = {
-  name: string;
-  prompt: string;
-  note?: string;
-  imageData?: string;
-};
+import { mapDeckToSpecs } from "../../../lib/pptx-map";
+import type { Deck } from "../../../lib/types";
+
+/** Lowercase alphanumerics and hyphens only; falls back to "valon-deck". */
+function slugify(title: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "valon-deck";
+}
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as {
-      title?: string;
-      slides?: SlidePayload[];
-    };
+    const body = (await request.json()) as { deck?: Deck };
+    const deck = body.deck;
 
-    if (!body.slides?.length) {
+    if (!deck || !deck.slides?.length) {
       return NextResponse.json({ error: "No slides to export." }, { status: 400 });
     }
 
-    const deck = new pptxgen();
-    deck.layout = "LAYOUT_WIDE";
-    deck.author = "Valon";
-    deck.company = "Valon";
-    deck.subject = "Valon Presentation Takehome export";
-    deck.title = body.title || "Valon Presentation Takehome export";
+    const marks = {
+      light: path.join(process.cwd(), "public/brand/logo-wordmark.svg"),
+      dark: path.join(process.cwd(), "public/brand/logo-wordmark-white.svg")
+    };
 
-    for (const slideData of body.slides) {
-      const slide = deck.addSlide();
-      slide.background = { color: "F4E7B8" };
+    const specs = mapDeckToSpecs(deck, marks);
 
-      if (slideData.imageData) {
-        slide.addImage({
-          data: slideData.imageData,
-          x: 0,
-          y: 0,
-          w: 13.333,
-          h: 7.5
-        });
-      } else {
+    const pptx = new pptxgen();
+    pptx.layout = "LAYOUT_WIDE";
+    pptx.author = "Valon";
+    pptx.company = "Valon";
+    pptx.title = deck.title;
+
+    for (const spec of specs) {
+      const slide = pptx.addSlide();
+      slide.background = { color: spec.background };
+
+      for (const shape of spec.shapes) {
         slide.addShape("rect", {
-          x: 0.7,
-          y: 1.1,
-          w: 11.9,
-          h: 4.9,
-          fill: { color: "FFF7DC" },
-          line: { color: "2B1E16", width: 1.5 }
-        });
-        slide.addText("No image on this slide yet.", {
-          x: 1.2,
-          y: 3.1,
-          w: 7.5,
-          h: 0.5,
-          fontFace: "Aptos",
-          fontSize: 24,
-          bold: true,
-          color: "2B1E16"
+          x: shape.x,
+          y: shape.y,
+          w: shape.w,
+          h: shape.h,
+          fill: { color: shape.fill },
+          line: { type: "none" }
         });
       }
 
-      slide.addText(slideData.name || "Untitled slide", {
-        x: 0.4,
-        y: 0.25,
-        w: 7.6,
-        h: 0.4,
-        fontFace: "Aptos Display",
-        fontSize: 18,
-        bold: true,
-        color: "141414",
-        margin: 0
-      });
+      for (const text of spec.texts) {
+        slide.addText(text.text, {
+          x: text.x,
+          y: text.y,
+          w: text.w,
+          h: text.h,
+          fontFace: text.fontFace,
+          fontSize: text.fontSize,
+          color: text.color,
+          bold: text.bold,
+          align: text.align,
+          valign: text.valign,
+          ...(text.bullet ? { bullet: { code: "2022" }, lineSpacing: text.lineSpacing } : {})
+        });
+      }
 
-      slide.addText(slideData.prompt || "", {
-        x: 0.4,
-        y: 6.95,
-        w: 8.3,
-        h: 0.3,
-        fontFace: "Aptos",
-        fontSize: 8,
-        color: "141414",
-        margin: 0
-      });
-
-      slide.addText(slideData.note || "", {
-        x: 8.95,
-        y: 6.8,
-        w: 4,
-        h: 0.45,
-        fontFace: "Aptos",
-        fontSize: 8,
-        color: "2B1E16",
-        margin: 0,
-        align: "right"
-      });
+      for (const image of spec.images) {
+        if (image.isData) {
+          slide.addImage({ data: image.path, x: image.x, y: image.y, w: image.w, h: image.h });
+        } else {
+          slide.addImage({ path: image.path, x: image.x, y: image.y, w: image.w, h: image.h });
+        }
+      }
     }
 
-    const file = await deck.write({ outputType: "nodebuffer" });
+    const file = await pptx.write({ outputType: "nodebuffer" });
 
     let responseBody: BodyInit;
 
@@ -111,7 +93,7 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "Content-Disposition": 'attachment; filename="valon-presentation-takehome-export.pptx"'
+        "Content-Disposition": `attachment; filename="${slugify(deck.title)}.pptx"`
       }
     });
   } catch (error) {
