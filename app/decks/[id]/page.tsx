@@ -352,9 +352,10 @@ export default function DeckEditorPage() {
               {selected.layout === "title" ? (
                 <div className="sl sl-title">
                   <hr className="gold-rule" />
-                  <input
+                  <textarea
                     aria-label="Slide heading"
                     className="sl-heading"
+                    rows={2}
                     value={selected.heading}
                     onChange={(event) => patchSlide(selected.id, { heading: event.target.value })}
                   />
@@ -374,9 +375,10 @@ export default function DeckEditorPage() {
 
               {selected.layout === "content" ? (
                 <div className="sl sl-content">
-                  <input
+                  <textarea
                     aria-label="Slide heading"
                     className="sl-heading"
+                    rows={1}
                     value={selected.heading}
                     onChange={(event) => patchSlide(selected.id, { heading: event.target.value })}
                   />
