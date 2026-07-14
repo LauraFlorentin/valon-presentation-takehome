@@ -31,6 +31,16 @@ a real PowerPoint at the end.
 
 Decks accumulate in a **Library** (localStorage — see ADR-0002).
 
+## Before / after
+
+| Starter output | After |
+|---|---|
+| ![The starter: joke UI and a hidden prompt appendix forcing Comic Sans clip-art output](docs/before.png) | ![Deck Studio: branded editor with AI-drafted structured slides and a supporting image](docs/after.png) |
+
+The left image is the untouched starter generating from its own seeded prompt —
+the hidden `HOUSE_STYLE_APPENDIX` forced every image toward Comic Sans clip art.
+The right is the same product surface after the rebuild.
+
 ## Setup
 
 ```bash
