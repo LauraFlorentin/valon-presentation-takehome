@@ -62,6 +62,12 @@ export function buildEvalRun(
       const record = parsed as Record<string, unknown>;
       verdict = parseVerdict(record.verdict);
       findings = parseFindings(record.findings);
+      if (verdict === "needs-revision" && findings.length === 0) {
+        // Never render a flagged row alongside "No issues found."
+        findings = [
+          { slideNumber: null, issue: "The brand check flagged this deck but returned no specific findings." },
+        ];
+      }
     }
   } catch {
     // keep the safe defaults above

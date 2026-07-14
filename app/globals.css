@@ -580,7 +580,7 @@ a {
   bottom: 3cqw;
   right: 3.4cqw;
   width: 8cqw;
-  opacity: 0.9;
+  /* brand skill: never apply effects (incl. transparency) to the logo */
 }
 
 /* Inline editing: inputs that disappear into the slide */

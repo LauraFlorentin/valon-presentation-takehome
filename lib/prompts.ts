@@ -1,4 +1,5 @@
 import { getVoice } from "./voices";
+import { CONTEXT_DOC_CHAR_CAP } from "./types";
 import type { Audience, ContextDoc, Deck, Slide, VoiceId } from "./types";
 
 /**
@@ -48,12 +49,19 @@ function contextBlock(contextDoc: ContextDoc | null): string {
   if (!contextDoc) {
     return "";
   }
+  // Re-enforce the cap at the trust boundary: /api/extract caps uploads, but
+  // draft/redraft/eval bodies arrive from the client and could carry anything.
+  const text = contextDoc.text.slice(0, CONTEXT_DOC_CHAR_CAP);
+  const truncated = contextDoc.truncated || contextDoc.text.length > CONTEXT_DOC_CHAR_CAP;
   return [
     ``,
     `Reference document ("${contextDoc.filename}") — the deck must address its content:`,
     `<document>`,
-    contextDoc.text,
+    text,
     `</document>`,
+    truncated
+      ? `Note: the document was cut off above — treat it as an excerpt, not the complete text.`
+      : ``,
   ].join("\n");
 }
 

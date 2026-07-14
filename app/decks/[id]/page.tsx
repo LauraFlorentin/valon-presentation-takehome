@@ -201,14 +201,19 @@ export default function DeckEditorPage() {
         throw new Error(payload.error ?? "Redraft failed.");
       }
 
-      patchSlide(selected.id, payload.slide);
+      // Replace the slide wholesale (a merge could never clear fields the
+      // model dropped, e.g. a removed subheading), and build the next deck
+      // synchronously so the brand check sees the revision — reading
+      // localStorage here would race React's batched persist.
+      const revised = payload.slide;
+      const nextDeck: Deck = {
+        ...deck,
+        slides: deck.slides.map((slide) => (slide.id === revised.id ? revised : slide)),
+      };
+      updateDeck(() => nextDeck);
       setRedraftInstruction("");
       flash("Slide revised. Running the brand check…");
-
-      const refreshed = getDeck(deck.id);
-      if (refreshed) {
-        fireEval(refreshed, "redraft");
-      }
+      fireEval(nextDeck, "redraft");
     } catch (cause) {
       flash(cause instanceof Error ? cause.message : "Redraft failed.", true);
     } finally {
@@ -519,9 +524,15 @@ export default function DeckEditorPage() {
                 <select
                   id="layout-select"
                   value={selected.layout}
-                  onChange={(event) =>
-                    patchSlide(selected.id, { layout: event.target.value as SlideLayout })
-                  }
+                  onChange={(event) => {
+                    const layout = event.target.value as SlideLayout;
+                    // Only content slides render images; drop the (multi-MB)
+                    // image on switch so it can't linger invisibly in storage.
+                    patchSlide(selected.id, {
+                      layout,
+                      ...(layout !== "content" ? { imageData: undefined } : {}),
+                    });
+                  }}
                 >
                   <option value="title">Title</option>
                   <option value="content">Content</option>

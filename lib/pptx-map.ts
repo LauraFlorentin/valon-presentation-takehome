@@ -148,20 +148,24 @@ function mapContentSlide(slide: Slide, marks: WordmarkPaths): PptxSlideSpec {
       w: SLIDE_W - MARGIN * 2,
       h: 0.9,
       fontFace: SERIF,
-      fontSize: 30,
+      fontSize: 36, // brand skill: display serif titles 36–60pt
       color: ESPRESSO,
       align: "left",
       valign: "middle",
     },
   ];
 
+  // Compress spacing when the deck carries more bullets than the 2–5 the
+  // prompt asks for, so nothing runs off the 7.5" slide or into the wordmark.
+  const spacing = Math.min(0.95, 4.6 / Math.max(1, slide.bullets.length));
+
   for (const [index, bullet] of slide.bullets.entries()) {
     texts.push({
       text: bullet,
       x: MARGIN + 0.1,
-      y: 2.0 + index * 0.95,
+      y: 2.0 + index * spacing,
       w: textWidth,
-      h: 0.9,
+      h: Math.min(0.9, spacing),
       fontFace: SANS,
       fontSize: 16,
       color: ESPRESSO,

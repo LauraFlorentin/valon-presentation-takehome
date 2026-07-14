@@ -10,7 +10,13 @@ const DECKS_KEY = "valon-deck-studio:decks:v1";
 const EVALS_KEY = "valon-deck-studio:evals:v1";
 
 function isBrowser(): boolean {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  try {
+    // The localStorage accessor itself throws when storage is blocked
+    // (Safari "Block all cookies", some webviews) — not just its methods.
+    return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  } catch {
+    return false;
+  }
 }
 
 function readJson<T>(key: string, fallback: T): T {
@@ -29,7 +35,13 @@ function writeJson(key: string, value: unknown): void {
   if (!isBrowser()) {
     return;
   }
-  window.localStorage.setItem(key, JSON.stringify(value));
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (cause) {
+    // Most likely QuotaExceededError: decks carry ~1 MB image data URLs
+    // (ADR-0002). Never crash the editor over a failed persist.
+    console.warn("Deck Studio: could not persist to localStorage.", cause);
+  }
 }
 
 // --- Decks ---
