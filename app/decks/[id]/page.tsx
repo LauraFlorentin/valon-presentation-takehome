@@ -2,12 +2,30 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { appendEvalRun, getDeck, saveDeck } from "../../../lib/storage";
 import { getVoice } from "../../../lib/voices";
 import type { Deck, EvalRun, Slide, SlideLayout } from "../../../lib/types";
 
 type Status = { text: string; error?: boolean } | null;
+
+/**
+ * Textarea that grows to fit its content — canvas text (headings, bullets)
+ * must wrap like slide text, never clip at the edge of an image or the frame.
+ */
+function GrowingTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  });
+
+  return <textarea ref={ref} rows={1} {...props} />;
+}
 
 function newSlide(layout: SlideLayout): Slide {
   return {
@@ -352,10 +370,9 @@ export default function DeckEditorPage() {
               {selected.layout === "title" ? (
                 <div className="sl sl-title">
                   <hr className="gold-rule" />
-                  <textarea
+                  <GrowingTextarea
                     aria-label="Slide heading"
                     className="sl-heading"
-                    rows={2}
                     value={selected.heading}
                     onChange={(event) => patchSlide(selected.id, { heading: event.target.value })}
                   />
@@ -375,10 +392,9 @@ export default function DeckEditorPage() {
 
               {selected.layout === "content" ? (
                 <div className="sl sl-content">
-                  <textarea
+                  <GrowingTextarea
                     aria-label="Slide heading"
                     className="sl-heading"
-                    rows={1}
                     value={selected.heading}
                     onChange={(event) => patchSlide(selected.id, { heading: event.target.value })}
                   />
@@ -387,11 +403,15 @@ export default function DeckEditorPage() {
                     <ul className="sl-bullets">
                       {selected.bullets.map((bullet, index) => (
                         <li key={index}>
-                          <input
+                          <GrowingTextarea
                             aria-label={`Bullet ${index + 1}`}
                             value={bullet}
                             onChange={(event) => setBullet(index, event.target.value)}
                             onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                // Bullets are single statements; no newlines.
+                                event.preventDefault();
+                              }
                               if (event.key === "Backspace" && bullet === "") {
                                 event.preventDefault();
                                 removeBullet(index);
@@ -431,10 +451,9 @@ export default function DeckEditorPage() {
               {selected.layout === "section" ? (
                 <div className="sl sl-section">
                   <hr className="gold-rule" />
-                  <textarea
+                  <GrowingTextarea
                     aria-label="Section statement"
                     className="sl-heading"
-                    rows={3}
                     value={selected.heading}
                     onChange={(event) => patchSlide(selected.id, { heading: event.target.value })}
                   />

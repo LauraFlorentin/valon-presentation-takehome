@@ -71,15 +71,25 @@ export async function POST(request: Request) {
       neighborHeadings,
     });
 
-    const response = await client.models.generateContent({
-      model: textModel(),
-      contents: prompt,
-    });
+    // One retry when the model's output fails validation — flash-tier models
+    // occasionally wrap the JSON in prose; a second attempt usually lands.
+    let result = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await client.models.generateContent({
+        model: textModel(),
+        contents: prompt,
+      });
+      result = parseSlideRedraft(responseText(response));
+      if (result.ok) {
+        break;
+      }
+    }
 
-    const result = parseSlideRedraft(responseText(response));
-
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: 502 });
+    if (!result || !result.ok) {
+      return NextResponse.json(
+        { error: result?.error ?? "The model did not return a usable slide." },
+        { status: 502 }
+      );
     }
 
     // Keep the original slide's identity and generated image: a text revision

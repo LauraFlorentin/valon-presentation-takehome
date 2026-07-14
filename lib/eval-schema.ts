@@ -1,4 +1,4 @@
-import { stripCodeFences } from "./deck-schema";
+import { extractJson } from "./deck-schema";
 import type { Deck, EvalFinding, EvalRun, EvalTrigger, Verdict } from "./types";
 
 /**
@@ -56,21 +56,18 @@ export function buildEvalRun(
     { slideNumber: null, issue: "Brand check did not return a readable result." },
   ];
 
-  try {
-    const parsed: unknown = JSON.parse(stripCodeFences(rawModelOutput));
-    if (typeof parsed === "object" && parsed !== null) {
-      const record = parsed as Record<string, unknown>;
-      verdict = parseVerdict(record.verdict);
-      findings = parseFindings(record.findings);
-      if (verdict === "needs-revision" && findings.length === 0) {
-        // Never render a flagged row alongside "No issues found."
-        findings = [
-          { slideNumber: null, issue: "The brand check flagged this deck but returned no specific findings." },
-        ];
-      }
+  // extractJson never throws; unreadable output keeps the safe defaults above.
+  const parsed = extractJson(rawModelOutput);
+  if (typeof parsed === "object" && parsed !== null) {
+    const record = parsed as Record<string, unknown>;
+    verdict = parseVerdict(record.verdict);
+    findings = parseFindings(record.findings);
+    if (verdict === "needs-revision" && findings.length === 0) {
+      // Never render a flagged row alongside "No issues found."
+      findings = [
+        { slideNumber: null, issue: "The brand check flagged this deck but returned no specific findings." },
+      ];
     }
-  } catch {
-    // keep the safe defaults above
   }
 
   return {

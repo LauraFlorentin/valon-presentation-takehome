@@ -28,6 +28,30 @@ export function stripCodeFences(raw: string): string {
   return fenced ? fenced[1] : trimmed;
 }
 
+/**
+ * Best-effort JSON extraction from model output. Handles fences and prose
+ * around the object ("Here is the revised slide: {...}"). Returns undefined
+ * when no parseable object exists — callers keep their own error messages.
+ */
+export function extractJson(raw: string): unknown {
+  const cleaned = stripCodeFences(raw);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // fall through to the outermost-braces heuristic
+  }
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start !== -1 && end > start) {
+    try {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 function newId(): string {
   // crypto.randomUUID exists in Node 19+ and all modern browsers.
   return globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -82,11 +106,9 @@ function parseSlide(raw: unknown): Slide | null {
 }
 
 export function parseDeckDraft(raw: string): ParseResult<DraftDeck> {
-  let parsed: unknown;
+  const parsed = extractJson(raw);
 
-  try {
-    parsed = JSON.parse(stripCodeFences(raw));
-  } catch {
+  if (parsed === undefined) {
     return { ok: false, error: "The model returned malformed JSON instead of a deck draft." };
   }
 
@@ -123,12 +145,20 @@ export function parseDeckDraft(raw: string): ParseResult<DraftDeck> {
 
 /** Parse a single-slide redraft response (same slide shape, no wrapper). */
 export function parseSlideRedraft(raw: string): ParseResult<Slide> {
-  let parsed: unknown;
+  let parsed = extractJson(raw);
 
-  try {
-    parsed = JSON.parse(stripCodeFences(raw));
-  } catch {
+  if (parsed === undefined) {
     return { ok: false, error: "The model returned malformed JSON instead of a slide." };
+  }
+
+  // Some responses wrap the slide: { "slide": { ... } } — unwrap it.
+  if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    !("layout" in parsed) &&
+    "slide" in parsed
+  ) {
+    parsed = (parsed as Record<string, unknown>).slide;
   }
 
   const slide = parseSlide(parsed);

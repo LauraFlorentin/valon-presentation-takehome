@@ -546,6 +546,11 @@ a {
   background: var(--base-300);
 }
 
+/* the "+ Bullet" control row is not a bullet — no dot */
+.sl-content .sl-bullets li:has(button)::before {
+  content: none;
+}
+
 .sl-content .sl-image {
   width: 33cqw;
   align-self: start;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDeckDraft } from "../lib/deck-schema";
+import { parseDeckDraft, parseSlideRedraft } from "../lib/deck-schema";
 
 const validDraft = {
   deckTitle: "Q3 Servicing Review",
@@ -89,6 +89,20 @@ describe("parseDeckDraft", () => {
     expect(result.error).toContain("Slide 2");
   });
 
+  it("extracts the deck when the model wraps the JSON in prose", () => {
+    const chatty =
+      "Here is your revised presentation draft:\n\n" +
+      JSON.stringify(validDraft) +
+      "\n\nLet me know if you would like any changes!";
+
+    const result = parseDeckDraft(chatty);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error);
+    expect(result.value.deckTitle).toBe("Q3 Servicing Review");
+    expect(result.value.slides).toHaveLength(4);
+  });
+
   it("defaults a missing heading to 'Untitled slide' instead of failing", () => {
     const draft = {
       deckTitle: "Resilient deck",
@@ -104,5 +118,32 @@ describe("parseDeckDraft", () => {
     if (!result.ok) throw new Error(result.error);
     expect(result.value.slides[1].heading).toBe("Untitled slide");
     expect(result.value.slides[1].bullets).toEqual(["One point survives"]);
+  });
+});
+
+describe("parseSlideRedraft", () => {
+  const revisedSlide = {
+    layout: "content",
+    heading: "$72B UPB reached in Q3",
+    bullets: ["Portfolio at $72B", "Compliance held at 100%"],
+  };
+
+  it("parses a slide even when wrapped in prose or a { slide } envelope", () => {
+    const prose = "Sure — here's the tightened slide:\n" + JSON.stringify(revisedSlide);
+    const proseResult = parseSlideRedraft(prose);
+    expect(proseResult.ok).toBe(true);
+    if (!proseResult.ok) throw new Error(proseResult.error);
+    expect(proseResult.value.heading).toBe("$72B UPB reached in Q3");
+
+    const enveloped = JSON.stringify({ slide: revisedSlide });
+    const envelopedResult = parseSlideRedraft(enveloped);
+    expect(envelopedResult.ok).toBe(true);
+    if (!envelopedResult.ok) throw new Error(envelopedResult.error);
+    expect(envelopedResult.value.bullets).toHaveLength(2);
+  });
+
+  it("still rejects output with no usable JSON object", () => {
+    const result = parseSlideRedraft("I could not produce a slide for that request.");
+    expect(result.ok).toBe(false);
   });
 });
